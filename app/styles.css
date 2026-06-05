@@ -105,8 +105,11 @@ ul, ol { list-style: none; }
 .screen {
   display: none;
   padding: 20px 16px;
+  padding-bottom: 100px;
   animation: fadeSlideIn 0.35s ease forwards;
   min-height: calc(100dvh - var(--nav-height) - var(--safe-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .screen.active {
@@ -694,6 +697,9 @@ ul, ol { list-style: none; }
 .lecture-detail {
   display: none;
   animation: fadeSlideIn 0.3s ease forwards;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 80px;
 }
 
 .lecture-detail.visible { display: block; }
@@ -737,6 +743,9 @@ ul, ol { list-style: none; }
   line-height: 1.75;
   color: var(--text-secondary);
   white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .detail-content strong, .detail-content b {
