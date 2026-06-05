@@ -49,7 +49,8 @@ html {
 
 body {
   font-family: var(--font);
-  background: var(--bg);
+  background: linear-gradient(135deg, #0a0a0f 0%, #0d0d1a 50%, #0a0a0f 100%);
+  background-color: var(--bg);
   color: var(--text);
   min-height: 100dvh;
   overflow-x: hidden;
@@ -346,6 +347,18 @@ ul, ol { list-style: none; }
   transition: all var(--transition);
   z-index: 800;
   border: none;
+  overflow: visible;
+}
+
+.fab::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--accent), #7c4dff, #ff4466, var(--accent));
+  z-index: -1;
+  animation: rotateBorder 4s linear infinite;
+  opacity: 0.7;
 }
 
 .fab:hover { transform: scale(1.08) translateY(-2px); }
@@ -1522,4 +1535,374 @@ ul, ol { list-style: none; }
   font-size: 20px;
   font-weight: 700;
   margin-bottom: 8px;
+}
+
+/* ═══════════════════════════════════════════════
+   THEME SYSTEM
+   ═══════════════════════════════════════════════ */
+
+/* ── Light Theme ─────────────────────────────── */
+[data-theme='light'] {
+  --bg:          #f5f5fa;
+  --bg-raised:   #eeeef5;
+  --card:        #ffffff;
+  --card-alt:    #f0f0f8;
+  --surface:     #e8e8f0;
+  --accent:      #0066ff;
+  --accent-dim:  #0052cc;
+  --accent-glow: rgba(0, 102, 255, 0.2);
+  --accent-bg:   rgba(0, 102, 255, 0.08);
+  --danger:      #e03050;
+  --warning:     #d49000;
+  --success:     #1aaa60;
+  --text:        #1a1a2e;
+  --text-secondary: #3a3a5c;
+  --muted:       #666680;
+  --border:      rgba(0, 0, 0, 0.08);
+  --glass-bg:    rgba(255, 255, 255, 0.75);
+  --glass-border:rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='light'] body {
+  background: #f5f5fa;
+}
+
+[data-theme='light'] .bottom-nav {
+  background: rgba(245, 245, 250, 0.92);
+}
+
+[data-theme='light'] .chat-input-bar {
+  background: rgba(245, 245, 250, 0.95);
+}
+
+[data-theme='light'] .bridge-bar {
+  background: rgba(245, 245, 250, 0.9);
+}
+
+[data-theme='light'] .status-bar {
+  background: #f5f5fa;
+}
+
+[data-theme='light'] .btn-primary {
+  color: #ffffff;
+}
+
+[data-theme='light'] .fab {
+  color: #ffffff;
+}
+
+/* ── Midnight Blue Theme ─────────────────────── */
+[data-theme='midnight'] {
+  --bg:          #0d1117;
+  --bg-raised:   #131920;
+  --card:        #161b22;
+  --card-alt:    #1c2333;
+  --surface:     #21262d;
+  --accent:      #58a6ff;
+  --accent-dim:  #388bfd;
+  --accent-glow: rgba(88, 166, 255, 0.2);
+  --accent-bg:   rgba(88, 166, 255, 0.08);
+  --danger:      #f85149;
+  --warning:     #d29922;
+  --success:     #3fb950;
+  --text:        #c9d1d9;
+  --text-secondary: #a0aab5;
+  --muted:       #8b949e;
+  --border:      rgba(240, 246, 252, 0.06);
+  --glass-bg:    rgba(22, 27, 34, 0.7);
+  --glass-border:rgba(240, 246, 252, 0.08);
+}
+
+[data-theme='midnight'] body {
+  background: #0d1117;
+}
+
+[data-theme='midnight'] .bottom-nav {
+  background: rgba(13, 17, 23, 0.92);
+}
+
+[data-theme='midnight'] .chat-input-bar {
+  background: rgba(13, 17, 23, 0.95);
+}
+
+[data-theme='midnight'] .bridge-bar {
+  background: rgba(22, 27, 34, 0.9);
+}
+
+[data-theme='midnight'] .status-bar {
+  background: #0d1117;
+}
+
+/* ── Gradient Greeting ───────────────────────── */
+.gradient-greeting {
+  background: linear-gradient(90deg, #00d4ff, #7c4dff, #ff4466);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Stat Card Glow ──────────────────────────── */
+.stat-card:hover {
+  box-shadow: 0 0 20px var(--accent-glow), 0 0 40px rgba(0, 212, 255, 0.08);
+  border-color: var(--accent);
+}
+
+/* ── Deadline Delete Button ──────────────────── */
+.deadline-delete-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--muted);
+  transition: all var(--transition);
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  margin-left: 6px;
+}
+
+.deadline-delete-btn:hover {
+  color: var(--danger);
+  background: rgba(255, 68, 102, 0.12);
+}
+
+/* ── Record Button Gradient Border ───────────── */
+.record-btn::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #ff4466, #7c4dff, #00d4ff, #22dd88, #ffaa22, #ff4466);
+  z-index: -1;
+  animation: rotateBorder 3s linear infinite;
+  opacity: 0.6;
+}
+
+@keyframes rotateBorder {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Upload Section ──────────────────────────── */
+.upload-section {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 16px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: center;
+}
+
+.upload-area:hover {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.upload-icon {
+  font-size: 32px;
+  opacity: 0.7;
+}
+
+.upload-text {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ── Record Mode Toggle ──────────────────────── */
+.record-mode-toggle {
+  display: flex;
+  background: var(--bg-raised);
+  border-radius: 24px;
+  padding: 4px;
+  margin-bottom: 16px;
+  width: fit-content;
+}
+
+.mode-btn {
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  border: none;
+  background: none;
+}
+
+.mode-btn.active {
+  background: var(--accent);
+  color: #000;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+/* ── Video Preview ───────────────────────────── */
+.video-preview-container {
+  width: 100%;
+  max-width: 280px;
+  margin: 12px auto;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 2px solid var(--accent);
+  box-shadow: 0 4px 20px var(--accent-glow);
+  display: none;
+}
+
+.video-preview-container.visible {
+  display: block;
+}
+
+.video-preview-container video {
+  width: 100%;
+  display: block;
+  border-radius: var(--radius);
+}
+
+/* ── Theme Picker ────────────────────────────── */
+.theme-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.theme-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+}
+
+.theme-circle:hover {
+  transform: scale(1.15);
+}
+
+.theme-circle.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.theme-circle.active::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.theme-dark { background: #0a0a0f; }
+.theme-light { background: #f5f5fa; }
+.theme-light.active::after { color: #1a1a2e; }
+.theme-midnight { background: #0d1117; }
+
+/* ── Chat Header ─────────────────────────────── */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.chat-header .chat-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.clear-chat-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--danger);
+  background: rgba(255, 68, 102, 0.1);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.clear-chat-btn:hover {
+  background: rgba(255, 68, 102, 0.2);
+}
+
+/* ── Add Study Session Form ──────────────────── */
+.add-session-form {
+  display: none;
+  animation: fadeSlideIn 0.3s ease forwards;
+  padding: 18px;
+  margin-top: 12px;
+}
+
+.add-session-form.visible { display: block; }
+
+/* ── Selected Day Info ───────────────────────── */
+.selected-day-info {
+  padding: 14px;
+  margin-bottom: 12px;
+  border-left: 3px solid var(--accent);
+}
+
+.selected-day-info .sdi-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.selected-day-info .sdi-content {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.selected-day-info .sdi-item {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.selected-day-info .sdi-item:last-child {
+  border-bottom: none;
+}
+
+/* ── Shimmer Animation ───────────────────────── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, var(--card) 25%, var(--surface) 50%, var(--card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Calendar 14-day grid ────────────────────── */
+.cal-week {
+  grid-template-rows: auto auto;
+}
+
+.cal-day.past {
+  opacity: 0.5;
 }

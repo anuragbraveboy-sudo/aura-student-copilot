@@ -40,10 +40,17 @@
 
       <div class="home-header">
         <div>
-          <h1 class="screen-title" id="home-greeting">Good evening 👋</h1>
+          <h1 class="screen-title gradient-greeting" id="home-greeting">Good evening 👋</h1>
           <p class="screen-subtitle" id="home-subtitle">Let's make today count.</p>
         </div>
-        <button class="btn-icon settings-btn" onclick="openSettings()" title="Settings">⚙️</button>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="theme-picker">
+            <div class="theme-circle theme-dark active" onclick="setTheme('dark')" title="Dark"></div>
+            <div class="theme-circle theme-light" onclick="setTheme('light')" title="Light"></div>
+            <div class="theme-circle theme-midnight" onclick="setTheme('midnight')" title="Midnight"></div>
+          </div>
+          <button class="btn-icon settings-btn" onclick="openSettings()" title="Settings">⚙️</button>
+        </div>
       </div>
 
       <!-- Stats -->
@@ -116,6 +123,17 @@
 
       <div class="record-center">
 
+        <!-- Record Mode Toggle -->
+        <div class="record-mode-toggle">
+          <button class="mode-btn active" id="mode-audio" onclick="setRecordMode('audio')">🎙️ Audio</button>
+          <button class="mode-btn" id="mode-video" onclick="setRecordMode('video')">📹 Video</button>
+        </div>
+
+        <!-- Video Preview (hidden by default) -->
+        <div class="video-preview-container" id="video-preview-container">
+          <video id="video-preview" autoplay muted playsinline></video>
+        </div>
+
         <!-- Record Button with Pulse -->
         <div class="record-btn-wrapper" id="record-btn-wrapper">
           <div class="pulse-ring"></div>
@@ -142,6 +160,16 @@
           <button class="btn-primary" id="type-save-btn" style="display:none;width:100%;margin-top:8px;" onclick="saveTypedNotes()">💾 Save Typed Notes</button>
         </div>
 
+        <!-- File Upload -->
+        <div class="upload-section">
+          <div class="section-label">📎 Upload Notes</div>
+          <div class="upload-area glass-card" id="upload-area">
+            <div class="upload-icon">📄</div>
+            <div class="upload-text">Tap to upload PDF, TXT, or DOC files</div>
+            <input type="file" id="file-upload" accept=".txt,.pdf,.md,.doc,.docx" style="display:none" />
+          </div>
+        </div>
+
         <!-- Post-Record Actions -->
         <div class="post-record" id="post-record">
           <input type="text" class="lecture-title-input" id="lecture-title-input" placeholder="Lecture title..." />
@@ -165,7 +193,10 @@
 
       <!-- Lecture Detail View (hidden by default) -->
       <div id="lecture-detail" class="lecture-detail">
-        <div class="detail-back" onclick="hideLectureDetail()">← Back to list</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div class="detail-back" onclick="hideLectureDetail()">← Back to list</div>
+          <button class="btn-ghost" style="color:var(--danger);" id="detail-delete-btn">🗑️ Delete</button>
+        </div>
         <h2 class="detail-title" id="detail-title"></h2>
         <p class="detail-meta" id="detail-meta"></p>
 
@@ -208,6 +239,10 @@
 
         <!-- Chat Panel -->
         <div id="panel-chat" class="study-panel">
+          <div class="chat-header">
+            <span class="chat-title">💬 AI Chat</span>
+            <button class="clear-chat-btn" onclick="clearChatHistory()">🗑 Clear Chat</button>
+          </div>
           <div class="chat-container" id="chat-messages">
             <div class="chat-bubble ai">
               👋 Hi! I'm your AURA study assistant. Ask me anything about your lecture notes, and I'll help you understand the material better.
@@ -256,6 +291,30 @@
         </div>
         <button type="submit" class="btn-primary" style="width:100%;">✅ Add Deadline</button>
       </form>
+
+      <!-- Selected Day Info -->
+      <div id="selected-day-info"></div>
+
+      <!-- Add Study Session Form (hidden) -->
+      <form class="add-session-form glass-card" id="add-session-form">
+        <div class="section-label" style="margin-top:0;">📝 Add Study Session</div>
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="ss-title-input" placeholder="e.g. Review Chapter 5" required />
+        </div>
+        <div class="form-group">
+          <label>Time</label>
+          <input type="time" id="ss-time-input" required />
+        </div>
+        <div class="form-group">
+          <label>Duration (minutes)</label>
+          <input type="number" id="ss-duration-input" placeholder="60" min="5" max="480" value="60" />
+        </div>
+        <button type="submit" class="btn-primary" style="width:100%;">✅ Add Session</button>
+      </form>
+
+      <!-- Add Session Button -->
+      <button class="btn-secondary" style="width:100%;margin-top:8px;" id="toggle-session-form-btn" onclick="toggleAddSessionForm()">📝 Add Study Session</button>
 
       <!-- AI Study Slots (Timeline) -->
       <div class="section-label">🤖 AI-Suggested Study Plan</div>

@@ -15,7 +15,13 @@ const state = {
   currentFlashcardIdx: 0,
   studyFlashcards: [],
   viewingLecture: null,
-  chatContext: ''
+  chatContext: '',
+  chatHistory: [],
+  recordMode: 'audio',
+  videoStream: null,
+  mediaRecorder: null,
+  videoChunks: [],
+  studySessions: []
 };
 
 /* ═══════════════════════════════════════════════
@@ -25,12 +31,17 @@ const state = {
 document.addEventListener('DOMContentLoaded', async () => {
   await AuraDB.open();
   await AuraDB.seed();
+  loadTheme();
+  loadChatHistory();
+  loadStudySessions();
   setupNavigation();
   navigateTo(location.hash.slice(1) || 'home');
   setupRecorder();
   setupCalendar();
   setupStudyTabs();
   setupChatInput();
+  setupFileUpload();
+  setupSessionForm();
   AuraBridge.init();
 });
 
@@ -84,7 +95,11 @@ function navigateTo(screenId) {
 
   // Refresh screen data
   if (screenId === 'home') refreshHome();
-  if (screenId === 'study') refreshStudy();
+  if (screenId === 'study') {
+    refreshStudy();
+    document.getElementById('lecture-detail').classList.remove('visible');
+    document.getElementById('study-main').style.display = 'block';
+  }
   if (screenId === 'calendar') refreshCalendar();
 }
 
@@ -103,7 +118,9 @@ async function refreshHome() {
   if (hour < 12) greeting = 'Good morning';
   else if (hour < 17) greeting = 'Good afternoon';
 
-  document.getElementById('home-greeting').textContent = greeting + ' 👋';
+  const greetEl = document.getElementById('home-greeting');
+  greetEl.textContent = greeting + ' 👋';
+  greetEl.classList.add('gradient-greeting');
   document.getElementById('home-subtitle').textContent = getMotivationalSubtitle();
 
   // Stats
@@ -164,6 +181,7 @@ function renderDeadlines(deadlines) {
           <div class="dl-meta">${esc(d.course)} • ${formatDate(d.date)}</div>
         </div>
         <div class="deadline-days">${dayText}</div>
+        <button class="deadline-delete-btn" onclick="event.stopPropagation();deleteDeadline('${d.id}')" title="Delete">✕</button>
       </div>`;
   }).join('');
 }
@@ -487,6 +505,10 @@ function setupStudyTabs() {
 }
 
 async function refreshStudy() {
+  // Fix: ensure study-main is visible and lecture-detail is hidden
+  document.getElementById('lecture-detail').classList.remove('visible');
+  document.getElementById('study-main').style.display = 'block';
+
   const lectures = await AuraDB.lectures.getAll();
   const flashcards = await AuraDB.flashcards.getAll();
 
@@ -534,6 +556,12 @@ async function openLecture(id) {
   const detail = document.getElementById('lecture-detail');
   document.getElementById('study-main').style.display = 'none';
   detail.classList.add('visible');
+
+  // Hook up delete button
+  const deleteBtn = document.getElementById('detail-delete-btn');
+  if (deleteBtn) {
+    deleteBtn.onclick = () => deleteLecture(id);
+  }
 
   // Hide chat bar so it doesn't cover content
   const chatBar = document.getElementById('chat-input-bar');
@@ -715,6 +743,7 @@ async function sendChatMessage() {
   const container = document.getElementById('chat-messages');
 
   // Add user bubble
+  state.chatHistory.push({ role: 'user', text: q });
   container.innerHTML += `<div class="chat-bubble user">${esc(q)}</div>`;
 
   // Add loading
@@ -730,6 +759,9 @@ async function sendChatMessage() {
   }
 
   const answer = await AuraAI.ask(q, ctx);
+
+  state.chatHistory.push({ role: 'ai', text: answer });
+  saveChatHistory();
 
   const loadEl = document.getElementById(loadId);
   if (loadEl) loadEl.outerHTML = `<div class="chat-bubble ai">${renderMarkdown(answer)}</div>`;
@@ -759,20 +791,21 @@ function renderWeekView() {
   const today = new Date();
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Get start of week (Sunday)
+  // Show 14 days starting from 3 days ago
   const start = new Date(today);
-  start.setDate(start.getDate() - start.getDay());
+  start.setDate(start.getDate() - 3);
 
   let html = '';
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 14; i++) {
     const d = new Date(start);
     d.setDate(d.getDate() + i);
 
     const isToday = d.toDateString() === today.toDateString();
     const isSelected = state.selectedCalDay === d.toDateString();
+    const isPast = d < today && !isToday;
 
     html += `
-      <div class="cal-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}"
+      <div class="cal-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''} ${isPast ? 'past' : ''}"
            onclick="selectCalDay('${d.toDateString()}')">
         <div class="cd-name">${dayNames[d.getDay()]}</div>
         <div class="cd-num">${d.getDate()}</div>
@@ -782,9 +815,45 @@ function renderWeekView() {
   container.innerHTML = html;
 }
 
-function selectCalDay(dateStr) {
+async function selectCalDay(dateStr) {
   state.selectedCalDay = dateStr;
   renderWeekView();
+  
+  // Show deadlines and study sessions for selected day
+  const deadlines = await AuraDB.deadlines.getAll();
+  const selectedDate = new Date(dateStr);
+  const dateIso = selectedDate.toISOString().split('T')[0];
+  
+  const dayDeadlines = deadlines.filter(d => d.date === dateIso);
+  const daySessions = state.studySessions.filter(s => s.date === dateIso);
+  
+  const container = document.getElementById('selected-day-info');
+  if (!container) return;
+  
+  if (dayDeadlines.length === 0 && daySessions.length === 0) {
+    container.innerHTML = `
+      <div class="selected-day-info glass-card">
+        <div class="sdi-title">${selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</div>
+        <div class="sdi-content">No deadlines or study sessions for this day.</div>
+      </div>`;
+    return;
+  }
+  
+  let html = `
+    <div class="selected-day-info glass-card">
+      <div class="sdi-title">${selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</div>
+      <div class="sdi-content">`;
+  
+  dayDeadlines.forEach(d => {
+    html += `<div class="sdi-item">📋 ${esc(d.title)} — ${esc(d.course)} (${d.priority})</div>`;
+  });
+  
+  daySessions.forEach(s => {
+    html += `<div class="sdi-item">📝 ${esc(s.title)} at ${esc(s.time)} (${s.duration}min)</div>`;
+  });
+  
+  html += `</div></div>`;
+  container.innerHTML = html;
 }
 
 function renderTimeline(deadlines) {
@@ -841,6 +910,7 @@ function renderCalDeadlines(deadlines) {
           <div class="dl-meta">${esc(d.course)} • ${formatDate(d.date)}</div>
         </div>
         <div class="deadline-days">${daysLeft}d</div>
+        <button class="deadline-delete-btn" onclick="event.stopPropagation();deleteDeadline('${d.id}')" title="Delete">✕</button>
       </div>`;
   }).join('');
 }
@@ -929,7 +999,307 @@ function renderMarkdown(text) {
     .replace(/\n/g, '<br>');
 }
 
+/* ═══════════════════════════════════════════════
+   THEME SYSTEM
+   ═══════════════════════════════════════════════ */
+
+function setTheme(name) {
+  if (!['dark', 'light', 'midnight'].includes(name)) name = 'dark';
+  
+  if (name === 'dark') {
+    delete document.documentElement.dataset.theme;
+  } else {
+    document.documentElement.dataset.theme = name;
+  }
+  
+  localStorage.setItem('aura-theme', name);
+  
+  // Update theme picker UI
+  document.querySelectorAll('.theme-circle').forEach(c => c.classList.remove('active'));
+  const active = document.querySelector(`.theme-${name}`);
+  if (active) active.classList.add('active');
+}
+
+function loadTheme() {
+  const saved = localStorage.getItem('aura-theme') || 'dark';
+  setTheme(saved);
+}
+
+/* ═══════════════════════════════════════════════
+   FILE UPLOAD
+   ═══════════════════════════════════════════════ */
+
+function setupFileUpload() {
+  const area = document.getElementById('upload-area');
+  const input = document.getElementById('file-upload');
+  
+  if (area && input) {
+    area.addEventListener('click', () => input.click());
+    input.addEventListener('change', handleFileUpload);
+  }
+}
+
+async function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const ext = file.name.split('.').pop().toLowerCase();
+  
+  if (ext === 'pdf') {
+    AuraAI.showToast('📄 PDF text extraction — connect to PC Bridge for processing');
+    e.target.value = '';
+    return;
+  }
+  
+  if (ext === 'doc' || ext === 'docx') {
+    AuraAI.showToast('📄 DOC files — connect to PC Bridge for processing');
+    e.target.value = '';
+    return;
+  }
+  
+  // Read .txt and .md files
+  if (ext === 'txt' || ext === 'md') {
+    try {
+      const text = await file.text();
+      if (!text || text.trim().length < 5) {
+        AuraAI.showToast('⚠️ File appears to be empty');
+        return;
+      }
+      
+      state.transcript = text.trim();
+      
+      // Update transcript display
+      document.getElementById('transcript-box').textContent = state.transcript;
+      
+      // Show post-record UI
+      const postRecord = document.getElementById('post-record');
+      postRecord.classList.add('visible');
+      document.getElementById('lecture-title-input').value = file.name.replace(/\.[^.]+$/, '') + ' — ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      postRecord.dataset.duration = 0;
+      
+      AuraAI.showToast(`✅ "${file.name}" loaded! Now save or summarize.`);
+    } catch (err) {
+      AuraAI.showToast('⚠️ Could not read file');
+      console.warn('[Upload] Error:', err);
+    }
+  }
+  
+  e.target.value = '';
+}
+
+/* ═══════════════════════════════════════════════
+   DELETE FUNCTIONS
+   ═══════════════════════════════════════════════ */
+
+async function deleteLecture(id) {
+  if (!confirm('Delete this lecture?')) return;
+  
+  await AuraDB.lectures.delete(id);
+  
+  // Also delete associated flashcards
+  const cards = await AuraDB.flashcards.getByLecture(id);
+  for (const c of cards) {
+    await AuraDB.flashcards.delete(c.id);
+  }
+  
+  AuraAI.showToast('🗑️ Lecture deleted');
+  
+  // If viewing lecture detail, go back
+  if (state.viewingLecture && state.viewingLecture.id === id) {
+    hideLectureDetail();
+  }
+  
+  // Refresh current screen
+  if (state.currentScreen === 'study') refreshStudy();
+  if (state.currentScreen === 'home') refreshHome();
+}
+
+async function deleteDeadline(id) {
+  if (!confirm('Delete this deadline?')) return;
+  
+  await AuraDB.deadlines.delete(id);
+  AuraAI.showToast('🗑️ Deadline deleted');
+  
+  if (state.currentScreen === 'calendar') refreshCalendar();
+  if (state.currentScreen === 'home') refreshHome();
+}
+
+async function deleteFlashcard(id) {
+  if (!confirm('Delete this flashcard?')) return;
+  
+  await AuraDB.flashcards.delete(id);
+  AuraAI.showToast('🗑️ Flashcard deleted');
+  
+  // Refresh flashcards
+  const allCards = await AuraDB.flashcards.getAll();
+  state.studyFlashcards = allCards;
+  state.currentFlashcardIdx = 0;
+  renderFlashcard();
+}
+
+/* ═══════════════════════════════════════════════
+   CHAT HISTORY
+   ═══════════════════════════════════════════════ */
+
+function saveChatHistory() {
+  try {
+    localStorage.setItem('aura-chat-history', JSON.stringify(state.chatHistory));
+  } catch (e) {
+    console.warn('[Chat] Could not save history:', e);
+  }
+}
+
+function loadChatHistory() {
+  try {
+    const saved = localStorage.getItem('aura-chat-history');
+    if (saved) {
+      state.chatHistory = JSON.parse(saved);
+      renderChatHistory();
+    }
+  } catch (e) {
+    console.warn('[Chat] Could not load history:', e);
+  }
+}
+
+function renderChatHistory() {
+  const container = document.getElementById('chat-messages');
+  if (!container || state.chatHistory.length === 0) return;
+  
+  let html = '<div class="chat-bubble ai">👋 Hi! I\'m your AURA study assistant. Ask me anything about your lecture notes, and I\'ll help you understand the material better.</div>';
+  
+  state.chatHistory.forEach(msg => {
+    if (msg.role === 'user') {
+      html += '<div class="chat-bubble user">' + esc(msg.text) + '</div>';
+    } else {
+      html += '<div class="chat-bubble ai">' + renderMarkdown(msg.text) + '</div>';
+    }
+  });
+  
+  container.innerHTML = html;
+  container.scrollTop = container.scrollHeight;
+}
+
+function clearChatHistory() {
+  if (!confirm('Clear all chat history?')) return;
+  
+  state.chatHistory = [];
+  localStorage.removeItem('aura-chat-history');
+  
+  const container = document.getElementById('chat-messages');
+  container.innerHTML = '<div class="chat-bubble ai">👋 Hi! I\'m your AURA study assistant. Ask me anything about your lecture notes, and I\'ll help you understand the material better.</div>';
+  
+  AuraAI.showToast('🗑️ Chat history cleared');
+}
+
+/* ═══════════════════════════════════════════════
+   VIDEO RECORDING
+   ═══════════════════════════════════════════════ */
+
+async function setRecordMode(mode) {
+  state.recordMode = mode;
+  
+  // Update button UI
+  document.getElementById('mode-audio')?.classList.toggle('active', mode === 'audio');
+  document.getElementById('mode-video')?.classList.toggle('active', mode === 'video');
+  
+  const previewContainer = document.getElementById('video-preview-container');
+  const previewVideo = document.getElementById('video-preview');
+  
+  if (mode === 'video') {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      state.videoStream = stream;
+      if (previewVideo) previewVideo.srcObject = stream;
+      if (previewContainer) previewContainer.classList.add('visible');
+    } catch (err) {
+      AuraAI.showToast('📹 Camera access denied');
+      console.warn('[Video] Error:', err);
+      setRecordMode('audio');
+      return;
+    }
+  } else {
+    // Stop video stream
+    if (state.videoStream) {
+      state.videoStream.getTracks().forEach(t => t.stop());
+      state.videoStream = null;
+    }
+    if (previewVideo) previewVideo.srcObject = null;
+    if (previewContainer) previewContainer.classList.remove('visible');
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   STUDY SESSIONS
+   ═══════════════════════════════════════════════ */
+
+function loadStudySessions() {
+  try {
+    const saved = localStorage.getItem('aura-study-sessions');
+    if (saved) state.studySessions = JSON.parse(saved);
+  } catch (e) {
+    console.warn('[Sessions] Could not load:', e);
+  }
+}
+
+function saveStudySessions() {
+  try {
+    localStorage.setItem('aura-study-sessions', JSON.stringify(state.studySessions));
+  } catch (e) {
+    console.warn('[Sessions] Could not save:', e);
+  }
+}
+
+function setupSessionForm() {
+  const form = document.getElementById('add-session-form');
+  if (form) {
+    form.addEventListener('submit', handleAddSession);
+  }
+}
+
+function toggleAddSessionForm() {
+  const form = document.getElementById('add-session-form');
+  if (form) form.classList.toggle('visible');
+}
+
+async function handleAddSession(e) {
+  e.preventDefault();
+  
+  const title = document.getElementById('ss-title-input').value.trim();
+  const time = document.getElementById('ss-time-input').value;
+  const duration = parseInt(document.getElementById('ss-duration-input').value) || 60;
+  
+  if (!title || !time) {
+    AuraAI.showToast('⚠️ Please fill in title and time');
+    return;
+  }
+  
+  // Use selected day or today
+  let dateIso;
+  if (state.selectedCalDay) {
+    dateIso = new Date(state.selectedCalDay).toISOString().split('T')[0];
+  } else {
+    dateIso = new Date().toISOString().split('T')[0];
+  }
+  
+  state.studySessions.push({
+    id: 'ss_' + Date.now(),
+    title,
+    time,
+    duration,
+    date: dateIso
+  });
+  
+  saveStudySessions();
+  AuraAI.showToast('✅ Study session added!');
+  
+  e.target.reset();
+  document.getElementById('add-session-form').classList.remove('visible');
+  
+  refreshCalendar();
+}
+
 /* ── Settings button ─────────────────────────── */
 function openSettings() {
   AuraAI.showKeyModal();
 }
+
