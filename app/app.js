@@ -487,6 +487,10 @@ async function openLecture(id) {
   document.getElementById('study-main').style.display = 'none';
   detail.classList.add('visible');
 
+  // Hide chat bar so it doesn't cover content
+  const chatBar = document.getElementById('chat-input-bar');
+  if (chatBar) chatBar.classList.remove('visible');
+
   document.getElementById('detail-title').textContent = lecture.title;
   document.getElementById('detail-meta').textContent =
     `${formatDate(new Date(lecture.date).toISOString().split('T')[0])} • ${formatDuration(lecture.duration)}`;
@@ -518,6 +522,10 @@ function hideLectureDetail() {
   document.getElementById('lecture-detail').classList.remove('visible');
   document.getElementById('study-main').style.display = 'block';
   state.viewingLecture = null;
+
+  // Show chat bar again
+  const chatBar = document.getElementById('chat-input-bar');
+  if (chatBar) chatBar.classList.add('visible');
 }
 
 async function generateSummary(lectureId) {
