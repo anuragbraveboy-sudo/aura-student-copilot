@@ -699,7 +699,7 @@ ul, ol { list-style: none; }
   animation: fadeSlideIn 0.3s ease forwards;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 80px;
+  padding-bottom: 160px;
 }
 
 .lecture-detail.visible { display: block; }

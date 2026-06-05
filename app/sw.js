@@ -1,10 +1,11 @@
-const CACHE_NAME = 'aura-v1.0.0';
+const CACHE_NAME = 'aura-v2.0.0';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './ai.js',
+  './bridge.js',
   './db.js',
   './manifest.json'
 ];
@@ -32,7 +33,7 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Fetch — cache-first for static, network-first for API
+// Fetch — network-first during development, cache as fallback
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
 
@@ -41,25 +42,24 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;
 
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      if (cached) return cached;
-
-      return fetch(e.request)
-        .then((response) => {
-          // Cache successful responses
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
-          }
-          return response;
-        })
-        .catch(() => {
-          // Offline fallback for navigation
+    fetch(e.request)
+      .then((response) => {
+        // Update cache with fresh response
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+        }
+        return response;
+      })
+      .catch(() => {
+        // Fallback to cache when offline
+        return caches.match(e.request).then((cached) => {
+          if (cached) return cached;
           if (e.request.mode === 'navigate') {
             return caches.match('./index.html');
           }
-          return new Response('Offline', { status: 503, statusText: 'Offline' });
+          return new Response('Offline', { status: 503 });
         });
-    })
+      })
   );
 });
