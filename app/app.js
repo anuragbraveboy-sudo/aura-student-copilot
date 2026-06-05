@@ -321,8 +321,56 @@ function stopRecording() {
     document.getElementById('lecture-title-input').value = 'Lecture — ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     postRecord.dataset.duration = duration;
   } else {
-    AuraAI.showToast('No speech detected. Try again.');
+    AuraAI.showToast('No speech detected. Try typing notes manually ⌨️');
+    // Auto-show the type mode
+    const textarea = document.getElementById('type-textarea');
+    const saveBtn = document.getElementById('type-save-btn');
+    const modeBtn = document.getElementById('type-mode-btn');
+    if (textarea) textarea.style.display = 'block';
+    if (saveBtn) saveBtn.style.display = 'block';
+    if (modeBtn) modeBtn.textContent = '🎙️ Switch back to voice mode';
   }
+}
+
+/* ── Manual Type Mode ────────────────────────── */
+function toggleTypeMode() {
+  const textarea = document.getElementById('type-textarea');
+  const saveBtn = document.getElementById('type-save-btn');
+  const modeBtn = document.getElementById('type-mode-btn');
+  
+  if (textarea.style.display === 'none') {
+    textarea.style.display = 'block';
+    saveBtn.style.display = 'block';
+    modeBtn.textContent = '🎙️ Switch back to voice mode';
+    textarea.focus();
+  } else {
+    textarea.style.display = 'none';
+    saveBtn.style.display = 'none';
+    modeBtn.textContent = '⌨️ Or type/paste notes manually';
+  }
+}
+
+async function saveTypedNotes() {
+  const textarea = document.getElementById('type-textarea');
+  const text = textarea.value.trim();
+  
+  if (!text || text.length < 10) {
+    AuraAI.showToast('⚠️ Please enter some notes first');
+    return;
+  }
+  
+  state.transcript = text;
+  
+  // Show post-record UI
+  const postRecord = document.getElementById('post-record');
+  postRecord.classList.add('visible');
+  document.getElementById('lecture-title-input').value = 'Lecture — ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  postRecord.dataset.duration = 0;
+  
+  // Update transcript display
+  document.getElementById('transcript-box').textContent = text;
+  
+  AuraAI.showToast('✅ Notes ready! Now save or summarize.');
 }
 
 function updateRecordTimer() {

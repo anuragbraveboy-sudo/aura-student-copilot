@@ -135,6 +135,13 @@
           <span style="color:var(--muted)">Your live transcript will appear here...</span>
         </div>
 
+        <!-- Manual Type Fallback -->
+        <div class="type-fallback" id="type-fallback">
+          <button class="btn-ghost" onclick="toggleTypeMode()" id="type-mode-btn">⌨️ Or type/paste notes manually</button>
+          <textarea class="type-textarea glass-card" id="type-textarea" placeholder="Paste or type your lecture notes here..." rows="6" style="display:none;"></textarea>
+          <button class="btn-primary" id="type-save-btn" style="display:none;width:100%;margin-top:8px;" onclick="saveTypedNotes()">💾 Save Typed Notes</button>
+        </div>
+
         <!-- Post-Record Actions -->
         <div class="post-record" id="post-record">
           <input type="text" class="lecture-title-input" id="lecture-title-input" placeholder="Lecture title..." />

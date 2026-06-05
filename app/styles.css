@@ -644,6 +644,34 @@ ul, ol { list-style: none; }
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
+/* ── Manual Type Fallback ────────────────────── */
+.type-fallback {
+  width: 100%;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.type-textarea {
+  width: 100%;
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+  min-height: 120px;
+  margin-top: 8px;
+  font-family: var(--font);
+}
+
+.type-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  outline: none;
+}
+
 .post-record-actions {
   display: flex;
   gap: 10px;
