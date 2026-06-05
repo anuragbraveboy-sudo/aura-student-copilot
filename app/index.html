@@ -44,6 +44,10 @@
           <p class="screen-subtitle" id="home-subtitle">Let's make today count.</p>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
+          <div class="api-status" onclick="AuraAI.showKeyModal()">
+            <span class="api-dot" id="api-dot"></span>
+            <span class="api-text" id="api-text">Setup AI</span>
+          </div>
           <div class="theme-picker">
             <div class="theme-circle theme-dark active" onclick="setTheme('dark')" title="Dark"></div>
             <div class="theme-circle theme-light" onclick="setTheme('light')" title="Light"></div>
@@ -66,6 +70,29 @@
         <div class="stat-card glass-card">
           <div class="stat-value" id="stat-streak">0</div>
           <div class="stat-label">Day Streak</div>
+        </div>
+      </div>
+
+      <!-- Focus Timer -->
+      <div class="section-label">🍅 Focus Timer</div>
+      <div class="pomodoro-card glass-card">
+        <div class="pomo-display">
+          <div class="pomo-time" id="pomo-time">25:00</div>
+          <div class="pomo-label" id="pomo-label">Focus Mode</div>
+        </div>
+        <div class="pomo-controls">
+          <button class="btn-icon" onclick="pomodoroAction('reset')" title="Reset">↺</button>
+          <button class="pomo-main-btn" id="pomo-btn" onclick="pomodoroAction('toggle')">▶</button>
+          <button class="btn-icon" onclick="pomodoroAction('skip')" title="Skip">⏭</button>
+        </div>
+        <div class="pomo-modes">
+          <button class="pomo-mode active" data-mins="25" onclick="setPomoMode(25,'Focus',this)">25 min</button>
+          <button class="pomo-mode" data-mins="5" onclick="setPomoMode(5,'Short Break',this)">5 min</button>
+          <button class="pomo-mode" data-mins="15" onclick="setPomoMode(15,'Long Break',this)">15 min</button>
+          <button class="pomo-mode" data-mins="50" onclick="setPomoMode(50,'Deep Work',this)">50 min</button>
+        </div>
+        <div class="pomo-stats">
+          <span id="pomo-sessions">0</span> sessions today
         </div>
       </div>
 
@@ -258,63 +285,49 @@
          ═══════════════════════════════════════ -->
     <section id="screen-calendar" class="screen">
 
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-        <h1 class="screen-title">Calendar</h1>
-        <button class="btn-icon" id="cal-add-btn" title="Add deadline">＋</button>
-      </div>
+      <h1 class="screen-title">Calendar</h1>
       <p class="screen-subtitle">Smart study schedule & deadlines</p>
 
-      <!-- Week View -->
-      <div class="cal-week" id="cal-week"></div>
+      <!-- Full Month Grid -->
+      <div id="cal-month-container"></div>
 
-      <!-- Add Deadline Form (hidden) -->
-      <form class="add-deadline-form glass-card" id="add-deadline-form">
-        <div class="form-group">
-          <label>Title</label>
-          <input type="text" id="dl-title-input" placeholder="e.g. Problem Set #3" required />
-        </div>
-        <div class="form-group">
-          <label>Course</label>
-          <input type="text" id="dl-course-input" placeholder="e.g. CS 229" />
-        </div>
-        <div class="form-group">
-          <label>Due Date</label>
-          <input type="date" id="dl-date-input" required />
-        </div>
-        <div class="form-group">
-          <label>Priority</label>
-          <select id="dl-priority-input">
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-          </select>
-        </div>
-        <button type="submit" class="btn-primary" style="width:100%;">✅ Add Deadline</button>
-      </form>
-
-      <!-- Selected Day Info -->
+      <!-- Selected Day Detail Panel -->
       <div id="selected-day-info"></div>
 
-      <!-- Add Study Session Form (hidden) -->
-      <form class="add-session-form glass-card" id="add-session-form">
-        <div class="section-label" style="margin-top:0;">📝 Add Study Session</div>
-        <div class="form-group">
-          <label>Title</label>
-          <input type="text" id="ss-title-input" placeholder="e.g. Review Chapter 5" required />
-        </div>
-        <div class="form-group">
-          <label>Time</label>
-          <input type="time" id="ss-time-input" required />
-        </div>
-        <div class="form-group">
-          <label>Duration (minutes)</label>
-          <input type="number" id="ss-duration-input" placeholder="60" min="5" max="480" value="60" />
-        </div>
-        <button type="submit" class="btn-primary" style="width:100%;">✅ Add Session</button>
-      </form>
+      <!-- Action Buttons -->
+      <div class="cal-actions" style="margin-top:12px;">
+        <button class="btn-primary" onclick="toggleCalForm('deadline')">📋 Add Deadline</button>
+        <button class="btn-secondary" onclick="toggleCalForm('session')">📝 Add Study Session</button>
+      </div>
 
-      <!-- Add Session Button -->
-      <button class="btn-secondary" style="width:100%;margin-top:8px;" id="toggle-session-form-btn" onclick="toggleAddSessionForm()">📝 Add Study Session</button>
+      <!-- Add Deadline Form (inline, hidden) -->
+      <div class="cal-form glass-card" id="cal-deadline-form">
+        <div class="section-label" style="margin-top:0;">📋 Add Deadline</div>
+        <input type="text" id="dl-title-input" placeholder="Title (e.g. Problem Set #3)" />
+        <input type="text" id="dl-course-input" placeholder="Course (e.g. CS 229)" />
+        <input type="date" id="dl-date-input" />
+        <select id="dl-priority-input">
+          <option value="low">Low Priority</option>
+          <option value="medium" selected>Medium Priority</option>
+          <option value="high">High Priority</option>
+        </select>
+        <div class="cal-actions">
+          <button class="btn-primary" onclick="handleAddDeadlineInline()">✅ Add Deadline</button>
+          <button class="btn-secondary" onclick="toggleCalForm('deadline')">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Add Study Session Form (inline, hidden) -->
+      <div class="cal-form glass-card" id="cal-session-form">
+        <div class="section-label" style="margin-top:0;">📝 Add Study Session</div>
+        <input type="text" id="ss-title-input" placeholder="Title (e.g. Review Chapter 5)" />
+        <input type="time" id="ss-time-input" />
+        <input type="number" id="ss-duration-input" placeholder="Duration (minutes)" min="5" max="480" value="60" />
+        <div class="cal-actions">
+          <button class="btn-primary" onclick="handleAddSessionInline()">✅ Add Session</button>
+          <button class="btn-secondary" onclick="toggleCalForm('session')">Cancel</button>
+        </div>
+      </div>
 
       <!-- AI Study Slots (Timeline) -->
       <div class="section-label">🤖 AI-Suggested Study Plan</div>

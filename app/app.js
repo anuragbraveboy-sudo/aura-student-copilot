@@ -41,8 +41,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupStudyTabs();
   setupChatInput();
   setupFileUpload();
-  setupSessionForm();
   AuraBridge.init();
+  // Pomodoro sessions init
+  document.getElementById('pomo-sessions').textContent = pomoState.sessions;
 });
 
 /* ═══════════════════════════════════════════════
@@ -127,6 +128,17 @@ async function refreshHome() {
   document.getElementById('stat-lectures').textContent = lectures.length;
   document.getElementById('stat-flashcards').textContent = flashcards.length;
   document.getElementById('stat-streak').textContent = calculateStreak(lectures);
+
+  // API Status Indicator
+  const apiDot = document.getElementById('api-dot');
+  const apiText = document.getElementById('api-text');
+  if (AuraAI.hasKey()) {
+    if(apiDot) apiDot.classList.add('active');
+    if(apiText) apiText.textContent = 'AI Active';
+  } else {
+    if(apiDot) apiDot.classList.remove('active');
+    if(apiText) apiText.textContent = 'Setup AI';
+  }
 
   // Deadlines
   renderDeadlines(deadlines);
@@ -537,6 +549,7 @@ function renderStudyLectures(lectures) {
         <div class="li-title">${esc(l.title)}</div>
         <div class="li-meta">${timeAgo(l.date)} • ${formatDuration(l.duration)} ${l.summary ? '• AI Summary' : ''}</div>
       </div>
+      <button class="lecture-delete-btn" onclick="event.stopPropagation();deleteLecture('${l.id}')" title="Delete">🗑️</button>
       <div class="lecture-arrow">›</div>
     </div>
   `).join('');
@@ -773,156 +786,188 @@ async function sendChatMessage() {
    ═══════════════════════════════════════════════ */
 
 function setupCalendar() {
-  const addBtn = document.getElementById('cal-add-btn');
-  if (addBtn) addBtn.addEventListener('click', toggleAddDeadlineForm);
-
-  const form = document.getElementById('add-deadline-form');
-  if (form) form.addEventListener('submit', handleAddDeadline);
+  // Calendar state
+  state.calViewDate = new Date();
+  state.selectedCalDay = new Date().toISOString().split('T')[0];
 }
 
 async function refreshCalendar() {
-  renderWeekView();
+  await renderMonthView();
   const deadlines = await AuraDB.deadlines.getAll();
   renderTimeline(deadlines);
 }
 
-function renderWeekView() {
-  const container = document.getElementById('cal-week');
+async function renderMonthView() {
+  const container = document.getElementById('cal-month-container');
+  if (!container) return;
+
+  const viewDate = state.calViewDate;
   const today = new Date();
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const todayStr = today.toISOString().split('T')[0];
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
-  // Show 14 days starting from 3 days ago
-  const start = new Date(today);
-  start.setDate(start.getDate() - 3);
+  // Get deadlines for dot indicators
+  const deadlines = await AuraDB.deadlines.getAll();
+  const deadlineMap = {};
+  deadlines.forEach(d => {
+    if (!deadlineMap[d.date]) deadlineMap[d.date] = [];
+    deadlineMap[d.date].push(d.priority);
+  });
 
-  let html = '';
-  for (let i = 0; i < 14; i++) {
-    const d = new Date(start);
-    d.setDate(d.getDate() + i);
+  // First day of month (0=Sun, convert to Mon=0)
+  const firstDay = new Date(year, month, 1);
+  let startDay = firstDay.getDay() - 1; // Mon=0
+  if (startDay < 0) startDay = 6; // Sun becomes 6
 
-    const isToday = d.toDateString() === today.toDateString();
-    const isSelected = state.selectedCalDay === d.toDateString();
-    const isPast = d < today && !isToday;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrev = new Date(year, month, 0).getDate();
 
-    html += `
-      <div class="cal-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''} ${isPast ? 'past' : ''}"
-           onclick="selectCalDay('${d.toDateString()}')">
-        <div class="cd-name">${dayNames[d.getDay()]}</div>
-        <div class="cd-num">${d.getDate()}</div>
-      </div>`;
+  let html = `
+    <div class="month-header">
+      <div class="month-nav">
+        <button onclick="changeMonth(-1)">◀</button>
+      </div>
+      <div class="month-title">${monthNames[month]} ${year}</div>
+      <div class="month-nav">
+        <button onclick="changeMonth(1)">▶</button>
+      </div>
+    </div>
+    <div class="cal-grid">`;
+
+  // Day headers
+  dayNames.forEach(d => {
+    html += `<div class="cal-day-header">${d}</div>`;
+  });
+
+  // Previous month trailing days
+  for (let i = startDay - 1; i >= 0; i--) {
+    const dayNum = daysInPrev - i;
+    html += `<div class="cal-day other-month"><div class="day-num">${dayNum}</div></div>`;
   }
 
+  // Current month days
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = dateStr === todayStr;
+    const isSelected = dateStr === state.selectedCalDay;
+    const dateObj = new Date(year, month, d);
+    const isPast = dateObj < today && !isToday;
+
+    let classes = 'cal-day';
+    if (isToday) classes += ' today';
+    if (isSelected) classes += ' selected';
+    if (isPast) classes += ' past';
+
+    // Deadline dots
+    let dots = '';
+    if (deadlineMap[dateStr]) {
+      dots = '<div class="day-dots">';
+      deadlineMap[dateStr].forEach(p => {
+        dots += `<div class="day-dot ${p}"></div>`;
+      });
+      dots += '</div>';
+    }
+
+    html += `<div class="${classes}" onclick="selectCalDay('${dateStr}')"><div class="day-num">${d}</div>${dots}</div>`;
+  }
+
+  // Next month leading days
+  const totalCells = startDay + daysInMonth;
+  const remaining = (7 - (totalCells % 7)) % 7;
+  for (let i = 1; i <= remaining; i++) {
+    html += `<div class="cal-day other-month"><div class="day-num">${i}</div></div>`;
+  }
+
+  html += '</div>';
   container.innerHTML = html;
+
+  // Show selected day detail
+  await showDayDetail(state.selectedCalDay);
+}
+
+function changeMonth(delta) {
+  state.calViewDate.setMonth(state.calViewDate.getMonth() + delta);
+  renderMonthView();
 }
 
 async function selectCalDay(dateStr) {
   state.selectedCalDay = dateStr;
-  renderWeekView();
-  
-  // Show deadlines and study sessions for selected day
-  const deadlines = await AuraDB.deadlines.getAll();
-  const selectedDate = new Date(dateStr);
-  const dateIso = selectedDate.toISOString().split('T')[0];
-  
-  const dayDeadlines = deadlines.filter(d => d.date === dateIso);
-  const daySessions = state.studySessions.filter(s => s.date === dateIso);
-  
+  // Pre-fill the deadline date input
+  const dlDateInput = document.getElementById('dl-date-input');
+  if (dlDateInput) dlDateInput.value = dateStr;
+  await renderMonthView();
+}
+
+async function showDayDetail(dateStr) {
   const container = document.getElementById('selected-day-info');
   if (!container) return;
-  
+
+  const deadlines = await AuraDB.deadlines.getAll();
+  const dayDeadlines = deadlines.filter(d => d.date === dateStr);
+  const daySessions = state.studySessions.filter(s => s.date === dateStr);
+
+  const dateObj = new Date(dateStr + 'T00:00:00');
+  const dateLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
   if (dayDeadlines.length === 0 && daySessions.length === 0) {
     container.innerHTML = `
-      <div class="selected-day-info glass-card">
-        <div class="sdi-title">${selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</div>
-        <div class="sdi-content">No deadlines or study sessions for this day.</div>
+      <div class="day-detail-panel glass-card">
+        <div class="day-detail-title">${dateLabel}</div>
+        <div class="day-empty">No deadlines or study sessions for this day.</div>
       </div>`;
     return;
   }
-  
+
   let html = `
-    <div class="selected-day-info glass-card">
-      <div class="sdi-title">${selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</div>
-      <div class="sdi-content">`;
-  
+    <div class="day-detail-panel glass-card">
+      <div class="day-detail-title">${dateLabel}</div>`;
+
   dayDeadlines.forEach(d => {
-    html += `<div class="sdi-item">📋 ${esc(d.title)} — ${esc(d.course)} (${d.priority})</div>`;
+    html += `<div class="deadline-item" style="padding:8px 0;">
+      <div class="deadline-dot ${d.priority}"></div>
+      <div class="deadline-info">
+        <div class="dl-title">${esc(d.title)}</div>
+        <div class="dl-meta">${esc(d.course)} • ${d.priority} priority</div>
+      </div>
+      <button class="deadline-delete-btn" onclick="event.stopPropagation();deleteDeadline('${d.id}')" title="Delete">✕</button>
+    </div>`;
   });
-  
+
   daySessions.forEach(s => {
-    html += `<div class="sdi-item">📝 ${esc(s.title)} at ${esc(s.time)} (${s.duration}min)</div>`;
+    html += `<div class="deadline-item" style="padding:8px 0;">
+      <div class="lecture-icon" style="width:32px;height:32px;border-radius:8px;font-size:14px;">📝</div>
+      <div class="deadline-info">
+        <div class="dl-title">${esc(s.title)}</div>
+        <div class="dl-meta">${esc(s.time)} • ${s.duration}min</div>
+      </div>
+    </div>`;
   });
-  
-  html += `</div></div>`;
+
+  html += '</div>';
   container.innerHTML = html;
 }
 
-function renderTimeline(deadlines) {
-  const container = document.getElementById('cal-timeline');
+function toggleCalForm(type) {
+  const dlForm = document.getElementById('cal-deadline-form');
+  const ssForm = document.getElementById('cal-session-form');
 
-  // Generate AI-suggested study slots
-  const studySlots = [
-    { time: '08:00 AM', title: 'Morning Review', desc: 'Review ML flashcards — peak focus hours', type: 'study' },
-    { time: '10:30 AM', title: 'Organic Chemistry', desc: 'Practice functional group identification', type: 'study' },
-    { time: '02:00 PM', title: 'History Essay Prep', desc: 'Outline Renaissance essay draft', type: 'study' },
-    { time: '04:30 PM', title: 'Break & Recharge', desc: 'Take a walk, clear your mind', type: 'break' },
-    { time: '06:00 PM', title: 'Evening Review', desc: 'Spaced repetition — revisit weak topics', type: 'study' }
-  ];
-
-  // Mix in deadlines for today
-  const today = new Date().toISOString().split('T')[0];
-  const todayDeadlines = deadlines.filter(d => d.date === today);
-
-  let items = studySlots.map(s => `
-    <div class="timeline-item ${s.type === 'study' ? 'study-slot' : ''} glass-card">
-      <div class="ti-time">${s.time}</div>
-      <div class="ti-title">${s.title}</div>
-      <div class="ti-desc">${s.desc}</div>
-    </div>
-  `);
-
-  todayDeadlines.forEach(d => {
-    items.push(`
-      <div class="timeline-item glass-card">
-        <div class="ti-time">⚠️ Due Today</div>
-        <div class="ti-title">${esc(d.title)}</div>
-        <div class="ti-desc">${esc(d.course)}</div>
-      </div>
-    `);
-  });
-
-  container.innerHTML = items.join('');
-
-  // Render deadlines list
-  renderCalDeadlines(deadlines);
+  if (type === 'deadline') {
+    dlForm.classList.toggle('visible');
+    ssForm.classList.remove('visible');
+    // Pre-fill date
+    if (state.selectedCalDay) {
+      document.getElementById('dl-date-input').value = state.selectedCalDay;
+    }
+  } else {
+    ssForm.classList.toggle('visible');
+    dlForm.classList.remove('visible');
+  }
 }
 
-function renderCalDeadlines(deadlines) {
-  const container = document.getElementById('cal-deadlines');
-  const sorted = [...deadlines].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  container.innerHTML = sorted.map(d => {
-    const daysLeft = Math.max(0, Math.ceil((new Date(d.date) - new Date()) / 86400000));
-    return `
-      <div class="deadline-item glass-card">
-        <div class="deadline-dot ${d.priority}"></div>
-        <div class="deadline-info">
-          <div class="dl-title">${esc(d.title)}</div>
-          <div class="dl-meta">${esc(d.course)} • ${formatDate(d.date)}</div>
-        </div>
-        <div class="deadline-days">${daysLeft}d</div>
-        <button class="deadline-delete-btn" onclick="event.stopPropagation();deleteDeadline('${d.id}')" title="Delete">✕</button>
-      </div>`;
-  }).join('');
-}
-
-function toggleAddDeadlineForm() {
-  const form = document.getElementById('add-deadline-form');
-  form.classList.toggle('visible');
-}
-
-async function handleAddDeadline(e) {
-  e.preventDefault();
-
+async function handleAddDeadlineInline() {
   const title = document.getElementById('dl-title-input').value.trim();
   const course = document.getElementById('dl-course-input').value.trim();
   const date = document.getElementById('dl-date-input').value;
@@ -944,8 +989,103 @@ async function handleAddDeadline(e) {
   AuraAI.showToast('✅ Deadline added!');
 
   // Reset form
-  e.target.reset();
-  document.getElementById('add-deadline-form').classList.remove('visible');
+  document.getElementById('dl-title-input').value = '';
+  document.getElementById('dl-course-input').value = '';
+  document.getElementById('dl-priority-input').value = 'medium';
+  document.getElementById('cal-deadline-form').classList.remove('visible');
+
+  refreshCalendar();
+}
+
+function renderTimeline(deadlines) {
+  const container = document.getElementById('cal-timeline');
+  if (!container) return;
+
+  // Generate AI-suggested study slots
+  const studySlots = [
+    { time: '08:00 AM', title: 'Morning Review', desc: 'Review flashcards \u2014 peak focus hours', type: 'study' },
+    { time: '10:30 AM', title: 'Deep Study Block', desc: 'Work on most challenging material', type: 'study' },
+    { time: '02:00 PM', title: 'Active Recall', desc: 'Practice problems & essay outlines', type: 'study' },
+    { time: '04:30 PM', title: 'Break & Recharge', desc: 'Take a walk, clear your mind', type: 'break' },
+    { time: '06:00 PM', title: 'Evening Review', desc: 'Spaced repetition \u2014 revisit weak topics', type: 'study' }
+  ];
+
+  // Mix in deadlines for today
+  const today = new Date().toISOString().split('T')[0];
+  const todayDeadlines = deadlines.filter(d => d.date === today);
+
+  let items = studySlots.map(s => `
+    <div class="timeline-item ${s.type === 'study' ? 'study-slot' : ''} glass-card">
+      <div class="ti-time">${s.time}</div>
+      <div class="ti-title">${s.title}</div>
+      <div class="ti-desc">${s.desc}</div>
+    </div>
+  `);
+
+  todayDeadlines.forEach(d => {
+    items.push(`
+      <div class="timeline-item glass-card">
+        <div class="ti-time">\u26A0\uFE0F Due Today</div>
+        <div class="ti-title">${esc(d.title)}</div>
+        <div class="ti-desc">${esc(d.course)}</div>
+      </div>
+    `);
+  });
+
+  container.innerHTML = items.join('');
+
+  // Render deadlines list
+  renderCalDeadlines(deadlines);
+}
+
+function renderCalDeadlines(deadlines) {
+  const container = document.getElementById('cal-deadlines');
+  if (!container) return;
+  const sorted = [...deadlines].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  container.innerHTML = sorted.map(d => {
+    const daysLeft = Math.max(0, Math.ceil((new Date(d.date) - new Date()) / 86400000));
+    return `
+      <div class="deadline-item glass-card">
+        <div class="deadline-dot ${d.priority}"></div>
+        <div class="deadline-info">
+          <div class="dl-title">${esc(d.title)}</div>
+          <div class="dl-meta">${esc(d.course)} \u2022 ${formatDate(d.date)}</div>
+        </div>
+        <div class="deadline-days">${daysLeft}d</div>
+        <button class="deadline-delete-btn" onclick="event.stopPropagation();deleteDeadline('${d.id}')" title="Delete">\u2715</button>
+      </div>`;
+  }).join('');
+}
+
+async function handleAddSessionInline() {
+  const title = document.getElementById('ss-title-input').value.trim();
+  const time = document.getElementById('ss-time-input').value;
+  const duration = parseInt(document.getElementById('ss-duration-input').value) || 60;
+
+  if (!title || !time) {
+    AuraAI.showToast('⚠️ Please fill in title and time');
+    return;
+  }
+
+  // Use selected day or today
+  const dateIso = state.selectedCalDay || new Date().toISOString().split('T')[0];
+
+  state.studySessions.push({
+    id: 'ss_' + Date.now(),
+    title,
+    time,
+    duration,
+    date: dateIso
+  });
+
+  saveStudySessions();
+  AuraAI.showToast('✅ Study session added!');
+
+  document.getElementById('ss-title-input').value = '';
+  document.getElementById('ss-time-input').value = '';
+  document.getElementById('ss-duration-input').value = '60';
+  document.getElementById('cal-session-form').classList.remove('visible');
 
   refreshCalendar();
 }
@@ -1249,57 +1389,81 @@ function saveStudySessions() {
   }
 }
 
-function setupSessionForm() {
-  const form = document.getElementById('add-session-form');
-  if (form) {
-    form.addEventListener('submit', handleAddSession);
-  }
-}
-
-function toggleAddSessionForm() {
-  const form = document.getElementById('add-session-form');
-  if (form) form.classList.toggle('visible');
-}
-
-async function handleAddSession(e) {
-  e.preventDefault();
-  
-  const title = document.getElementById('ss-title-input').value.trim();
-  const time = document.getElementById('ss-time-input').value;
-  const duration = parseInt(document.getElementById('ss-duration-input').value) || 60;
-  
-  if (!title || !time) {
-    AuraAI.showToast('⚠️ Please fill in title and time');
-    return;
-  }
-  
-  // Use selected day or today
-  let dateIso;
-  if (state.selectedCalDay) {
-    dateIso = new Date(state.selectedCalDay).toISOString().split('T')[0];
-  } else {
-    dateIso = new Date().toISOString().split('T')[0];
-  }
-  
-  state.studySessions.push({
-    id: 'ss_' + Date.now(),
-    title,
-    time,
-    duration,
-    date: dateIso
-  });
-  
-  saveStudySessions();
-  AuraAI.showToast('✅ Study session added!');
-  
-  e.target.reset();
-  document.getElementById('add-session-form').classList.remove('visible');
-  
-  refreshCalendar();
-}
-
 /* ── Settings button ─────────────────────────── */
 function openSettings() {
   AuraAI.showKeyModal();
+}
+
+/* ═══════════════════════════════════════════════
+   POMODORO FOCUS TIMER
+   ═══════════════════════════════════════════════ */
+
+let pomoState = { running: false, timeLeft: 25*60, mode: 'Focus', interval: null, sessions: parseInt(localStorage.getItem('aura_pomo_sessions') || '0') };
+
+function pomodoroAction(action) {
+  if (action === 'toggle') {
+    if (pomoState.running) {
+      clearInterval(pomoState.interval);
+      pomoState.running = false;
+      document.getElementById('pomo-btn').textContent = '\u25B6';
+      document.getElementById('pomo-btn').classList.remove('running');
+    } else {
+      pomoState.running = true;
+      document.getElementById('pomo-btn').textContent = '\u23F8';
+      document.getElementById('pomo-btn').classList.add('running');
+      pomoState.interval = setInterval(() => {
+        pomoState.timeLeft--;
+        if (pomoState.timeLeft <= 0) {
+          clearInterval(pomoState.interval);
+          pomoState.running = false;
+          pomoState.sessions++;
+          localStorage.setItem('aura_pomo_sessions', pomoState.sessions);
+          document.getElementById('pomo-sessions').textContent = pomoState.sessions;
+          document.getElementById('pomo-btn').textContent = '\u25B6';
+          document.getElementById('pomo-btn').classList.remove('running');
+          AuraAI.showToast('\uD83C\uDF45 ' + pomoState.mode + ' complete! Great job!');
+          // Auto switch to break
+          if (pomoState.mode === 'Focus' || pomoState.mode === 'Deep Work') {
+            setPomoMode(5, 'Short Break', document.querySelector('.pomo-mode[data-mins="5"]'));
+          } else {
+            setPomoMode(25, 'Focus', document.querySelector('.pomo-mode[data-mins="25"]'));
+          }
+        }
+        updatePomoDisplay();
+      }, 1000);
+    }
+  } else if (action === 'reset') {
+    clearInterval(pomoState.interval);
+    pomoState.running = false;
+    const currentMode = document.querySelector('.pomo-mode.active');
+    pomoState.timeLeft = (currentMode ? parseInt(currentMode.dataset.mins) : 25) * 60;
+    document.getElementById('pomo-btn').textContent = '\u25B6';
+    document.getElementById('pomo-btn').classList.remove('running');
+    updatePomoDisplay();
+  } else if (action === 'skip') {
+    clearInterval(pomoState.interval);
+    pomoState.running = false;
+    pomoState.timeLeft = 0;
+    pomodoroAction('toggle'); // This will trigger completion
+  }
+}
+
+function setPomoMode(mins, label, el) {
+  clearInterval(pomoState.interval);
+  pomoState.running = false;
+  pomoState.timeLeft = mins * 60;
+  pomoState.mode = label;
+  document.getElementById('pomo-btn').textContent = '\u25B6';
+  document.getElementById('pomo-btn').classList.remove('running');
+  document.getElementById('pomo-label').textContent = label;
+  document.querySelectorAll('.pomo-mode').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  updatePomoDisplay();
+}
+
+function updatePomoDisplay() {
+  const m = String(Math.floor(pomoState.timeLeft / 60)).padStart(2, '0');
+  const s = String(pomoState.timeLeft % 60).padStart(2, '0');
+  document.getElementById('pomo-time').textContent = m + ':' + s;
 }
 
