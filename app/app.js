@@ -512,9 +512,27 @@ async function openLecture(id) {
   const cards = await AuraDB.flashcards.getByLecture(id);
   const fcContainer = document.getElementById('detail-flashcards');
   if (cards.length > 0) {
-    fcContainer.innerHTML = `<p style="color:var(--muted);font-size:13px;">${cards.length} flashcard(s) generated</p>`;
+    let html = `<div class="detail-fc-deck">`;
+    cards.forEach((c, idx) => {
+      html += `
+        <div class="flashcard" onclick="this.classList.toggle('flipped')" style="position:relative;min-height:160px;margin-bottom:12px;">
+          <div class="flashcard-face flashcard-front">
+            <div class="fc-label">Question ${idx + 1}</div>
+            <div class="fc-text">${esc(c.front)}</div>
+            <div class="fc-hint">Tap to reveal answer</div>
+          </div>
+          <div class="flashcard-face flashcard-back">
+            <div class="fc-label">Answer</div>
+            <div class="fc-text">${esc(c.back)}</div>
+            <div class="fc-hint">Tap to flip back</div>
+          </div>
+        </div>`;
+    });
+    html += `</div>`;
+    html += `<button class="btn-secondary" style="width:100%;margin-top:8px;" onclick="generateFlashcardsForLecture('${id}')">🃏 Generate More Flashcards</button>`;
+    fcContainer.innerHTML = html;
   } else {
-    fcContainer.innerHTML = `<button class="btn-secondary" onclick="generateFlashcardsForLecture('${id}')">🃏 Generate Flashcards</button>`;
+    fcContainer.innerHTML = `<button class="btn-primary" style="width:100%;" onclick="generateFlashcardsForLecture('${id}')">🃏 Generate Flashcards</button>`;
   }
 }
 

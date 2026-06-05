@@ -704,6 +704,10 @@ ul, ol { list-style: none; }
 
 .lecture-detail.visible { display: block; }
 
+.detail-fc-deck {
+  perspective: 1000px;
+}
+
 .lecture-detail .detail-back {
   display: inline-flex;
   align-items: center;
