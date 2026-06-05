@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#00d4ff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="AURA" />
+  <meta name="description" content="AURA — Privacy-first, on-device academic co-pilot. Record lectures, generate AI summaries & flashcards, and plan your study sessions." />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a0a0f'/%3E%3Ccircle cx='32' cy='28' r='12' fill='none' stroke='%2300d4ff' stroke-width='2'/%3E%3Ccircle cx='32' cy='28' r='3' fill='%2300d4ff'/%3E%3Ctext x='32' y='54' text-anchor='middle' font-family='sans-serif' font-weight='700' font-size='12' fill='%23e8e8f0'%3EAURA%3C/text%3E%3C/svg%3E" />
+
+  <!-- Google Font: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+  <title>AURA — Academic Co-Pilot</title>
+</head>
+<body>
+
+  <div class="status-bar"></div>
+
+  <!-- Bridge Status Indicator -->
+  <div class="bridge-bar" id="bridge-bar" onclick="openBridgeSettings()">
+    <div class="bridge-dot" id="bridge-dot"></div>
+    <span id="bridge-label">PC Bridge: Disconnected</span>
+  </div>
+
+  <div class="app-container">
+
+    <!-- ═══════════════════════════════════════
+         HOME SCREEN
+         ═══════════════════════════════════════ -->
+    <section id="screen-home" class="screen active">
+
+      <div class="home-header">
+        <div>
+          <h1 class="screen-title" id="home-greeting">Good evening 👋</h1>
+          <p class="screen-subtitle" id="home-subtitle">Let's make today count.</p>
+        </div>
+        <button class="btn-icon settings-btn" onclick="openSettings()" title="Settings">⚙️</button>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card glass-card">
+          <div class="stat-value" id="stat-lectures">0</div>
+          <div class="stat-label">Lectures</div>
+        </div>
+        <div class="stat-card glass-card">
+          <div class="stat-value" id="stat-flashcards">0</div>
+          <div class="stat-label">Flashcards</div>
+        </div>
+        <div class="stat-card glass-card">
+          <div class="stat-value" id="stat-streak">0</div>
+          <div class="stat-label">Day Streak</div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="section-label">Quick Actions</div>
+      <div class="quick-actions">
+        <div class="quick-action-btn glass-card" onclick="navigateTo('record')">
+          <div class="qa-icon qa-red">🎙️</div>
+          <div class="qa-label">Record<br>Lecture</div>
+        </div>
+        <div class="quick-action-btn glass-card" onclick="navigateTo('study')">
+          <div class="qa-icon qa-blue">📚</div>
+          <div class="qa-label">Study<br>Notes</div>
+        </div>
+        <div class="quick-action-btn glass-card" onclick="navigateTo('calendar')">
+          <div class="qa-icon qa-purple">📅</div>
+          <div class="qa-label">View<br>Calendar</div>
+        </div>
+        <div class="quick-action-btn glass-card" onclick="openSettings()">
+          <div class="qa-icon qa-green">🔑</div>
+          <div class="qa-label">API<br>Key</div>
+        </div>
+      </div>
+
+      <!-- Sync to PC Bridge Card -->
+      <div class="section-label">🔗 iQOO Office Kit Bridge</div>
+      <div class="bridge-card glass-card" id="bridge-card" onclick="syncToPC()">
+        <div class="bridge-card-left">
+          <div class="bridge-card-icon">📱⇄💻</div>
+          <div class="bridge-card-info">
+            <div class="bridge-card-title">Sync to PC</div>
+            <div class="bridge-card-desc" id="bridge-card-desc">Send lectures to laptop for heavy processing</div>
+          </div>
+        </div>
+        <div class="bridge-sync-btn" id="bridge-sync-btn">Sync</div>
+      </div>
+
+      <!-- Upcoming Deadlines -->
+      <div class="section-label">Upcoming Deadlines</div>
+      <div id="home-deadlines"></div>
+
+      <!-- Recent Lectures -->
+      <div class="section-label">Recent Lectures</div>
+      <div id="home-lectures"></div>
+
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         RECORD SCREEN
+         ═══════════════════════════════════════ -->
+    <section id="screen-record" class="screen">
+
+      <h1 class="screen-title">Record Lecture</h1>
+      <p class="screen-subtitle">Tap to start capturing speech in real-time</p>
+
+      <div class="record-center">
+
+        <!-- Record Button with Pulse -->
+        <div class="record-btn-wrapper" id="record-btn-wrapper">
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring"></div>
+          <button class="record-btn" id="record-btn">🎙️</button>
+        </div>
+
+        <!-- Timer -->
+        <div class="record-timer" id="record-timer">00:00</div>
+
+        <!-- Status -->
+        <div class="record-status" id="record-status">Tap the button to start recording</div>
+
+        <!-- Live Transcript -->
+        <div class="transcript-box glass-card" id="transcript-box">
+          <span style="color:var(--muted)">Your live transcript will appear here...</span>
+        </div>
+
+        <!-- Post-Record Actions -->
+        <div class="post-record" id="post-record">
+          <input type="text" class="lecture-title-input" id="lecture-title-input" placeholder="Lecture title..." />
+          <div class="post-record-actions">
+            <button class="btn-secondary" onclick="saveLectureFromRecording()">💾 Save Only</button>
+            <button class="btn-primary" onclick="summarizeAndSave()">✨ Summarize & Save</button>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         STUDY SCREEN
+         ═══════════════════════════════════════ -->
+    <section id="screen-study" class="screen">
+
+      <h1 class="screen-title">Study Hub</h1>
+      <p class="screen-subtitle">Review, revise, and ace your exams</p>
+
+      <!-- Lecture Detail View (hidden by default) -->
+      <div id="lecture-detail" class="lecture-detail">
+        <div class="detail-back" onclick="hideLectureDetail()">← Back to list</div>
+        <h2 class="detail-title" id="detail-title"></h2>
+        <p class="detail-meta" id="detail-meta"></p>
+
+        <div class="detail-section-title">📝 Transcript</div>
+        <div class="detail-content glass-card" id="detail-transcript"></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div class="detail-section-title">✨ AI Summary</div>
+          <div id="detail-summary-actions"></div>
+        </div>
+        <div class="detail-content glass-card" id="detail-summary"></div>
+
+        <div class="detail-section-title">🃏 Flashcards</div>
+        <div id="detail-flashcards"></div>
+      </div>
+
+      <!-- Main Study View -->
+      <div id="study-main">
+        <!-- Tabs -->
+        <div class="study-tabs">
+          <div class="study-tab active" data-panel="lectures">📄 Lectures</div>
+          <div class="study-tab" data-panel="flashcards">🃏 Cards</div>
+          <div class="study-tab" data-panel="chat">💬 AI Chat</div>
+        </div>
+
+        <!-- Lectures Panel -->
+        <div id="panel-lectures" class="study-panel active">
+          <div id="study-lectures-list"></div>
+        </div>
+
+        <!-- Flashcards Panel -->
+        <div id="panel-flashcards" class="study-panel">
+          <div class="flashcard-deck" id="flashcard-deck"></div>
+          <div class="flashcard-nav">
+            <button class="btn-icon" onclick="prevFlashcard()">◀</button>
+            <span class="flashcard-counter" id="flashcard-counter">0 / 0</span>
+            <button class="btn-icon" onclick="nextFlashcard()">▶</button>
+          </div>
+        </div>
+
+        <!-- Chat Panel -->
+        <div id="panel-chat" class="study-panel">
+          <div class="chat-container" id="chat-messages">
+            <div class="chat-bubble ai">
+              👋 Hi! I'm your AURA study assistant. Ask me anything about your lecture notes, and I'll help you understand the material better.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         CALENDAR SCREEN
+         ═══════════════════════════════════════ -->
+    <section id="screen-calendar" class="screen">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <h1 class="screen-title">Calendar</h1>
+        <button class="btn-icon" id="cal-add-btn" title="Add deadline">＋</button>
+      </div>
+      <p class="screen-subtitle">Smart study schedule & deadlines</p>
+
+      <!-- Week View -->
+      <div class="cal-week" id="cal-week"></div>
+
+      <!-- Add Deadline Form (hidden) -->
+      <form class="add-deadline-form glass-card" id="add-deadline-form">
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="dl-title-input" placeholder="e.g. Problem Set #3" required />
+        </div>
+        <div class="form-group">
+          <label>Course</label>
+          <input type="text" id="dl-course-input" placeholder="e.g. CS 229" />
+        </div>
+        <div class="form-group">
+          <label>Due Date</label>
+          <input type="date" id="dl-date-input" required />
+        </div>
+        <div class="form-group">
+          <label>Priority</label>
+          <select id="dl-priority-input">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+        <button type="submit" class="btn-primary" style="width:100%;">✅ Add Deadline</button>
+      </form>
+
+      <!-- AI Study Slots (Timeline) -->
+      <div class="section-label">🤖 AI-Suggested Study Plan</div>
+      <div class="timeline" id="cal-timeline"></div>
+
+      <!-- Deadlines List -->
+      <div class="section-label">📋 All Deadlines</div>
+      <div id="cal-deadlines"></div>
+
+    </section>
+
+  </div><!-- /.app-container -->
+
+  <!-- ═══════════════════════════════════════
+       FAB (Quick Record)
+       ═══════════════════════════════════════ -->
+  <button class="fab" id="fab" title="Quick Record">🎙️</button>
+
+  <!-- ═══════════════════════════════════════
+       BOTTOM NAVIGATION
+       ═══════════════════════════════════════ -->
+  <nav class="bottom-nav">
+    <div class="nav-item active" data-screen="home">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Home</span>
+    </div>
+    <div class="nav-item" data-screen="record">
+      <span class="nav-icon">🎙️</span>
+      <span class="nav-label">Record</span>
+    </div>
+    <div class="nav-item" data-screen="study">
+      <span class="nav-icon">📚</span>
+      <span class="nav-label">Study</span>
+    </div>
+    <div class="nav-item" data-screen="calendar">
+      <span class="nav-icon">📅</span>
+      <span class="nav-label">Calendar</span>
+    </div>
+  </nav>
+
+  <!-- Chat Input Bar (shown only on Study screen) -->
+  <div class="chat-input-bar" id="chat-input-bar">
+    <input type="text" id="chat-input" placeholder="Ask about your notes..." />
+    <button class="send-btn" id="chat-send-btn">➤</button>
+  </div>
+
+  <!-- Bridge Settings Modal -->
+  <div class="modal-overlay" id="bridge-modal">
+    <div class="modal glass-card">
+      <h3>🔗 PC Bridge Settings</h3>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">Connect to your laptop's AURA Bridge server via local network.</p>
+      <div class="form-group">
+        <label>Laptop IP Address</label>
+        <input type="text" id="bridge-ip-input" placeholder="e.g. 192.168.1.5" />
+      </div>
+      <div class="form-group">
+        <label>Port (default: 8765)</label>
+        <input type="number" id="bridge-port-input" placeholder="8765" value="8765" />
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button class="btn-secondary" onclick="closeBridgeModal()" style="flex:1;">Cancel</button>
+        <button class="btn-primary" onclick="saveBridgeSettings()" style="flex:1;">💾 Save & Connect</button>
+      </div>
+      <button class="btn-ghost" onclick="testBridgeConnection()" style="width:100%;margin-top:8px;">🔍 Test Connection</button>
+      <div id="bridge-test-result" style="margin-top:8px;font-size:13px;text-align:center;"></div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="db.js"></script>
+  <script src="ai.js"></script>
+  <script src="bridge.js"></script>
+  <script src="app.js"></script>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('[SW] Registered:', reg.scope))
+        .catch(err => console.warn('[SW] Registration failed:', err));
+    }
+  </script>
+
+</body>
+</html>
